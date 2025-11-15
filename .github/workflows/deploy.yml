@@ -53,9 +53,16 @@ jobs:
           BRANCH: ${{ github.ref_name }}
         run: |
           echo 'Sending start message to Discord...'
-          payload=$(jq -n --arg branch "$BRANCH" '{embeds:[{title:"Bot deployment", description:("Branch: " + $branch), fields:[{name:"Progress", value:"0%"}], color:3447003}]}')
-          res=$(curl -s -H "Content-Type: application/json" -d "$payload" "$WEBHOOK")
-          echo "message_id=$(echo "$res" | jq -r .id)" >> $GITHUB_OUTPUT
+          payload=$(jq -n --arg branch "$BRANCH" '{embeds:[{title:"Bot deployment", description:("Branch: " + $branch), fields:[{name:"Progress", value:"0%"}], color:3447003}], "tts": false }')
+          # Use ?wait=true to get the created message object (includes id). Some webhook endpoints return 204 without wait.
+          res=$(curl -s -H "Content-Type: application/json" -d "$payload" "$WEBHOOK?wait=true")
+          msg_id=$(echo "$res" | jq -r .id // true)
+          if [ "$msg_id" = "true" ] || [ -z "$msg_id" ] || [ "$msg_id" = "null" ]; then
+            echo "Warning: could not obtain message id from webhook response. Response: $res"
+            echo "message_id=" >> $GITHUB_OUTPUT
+          else
+            echo "message_id=$msg_id" >> $GITHUB_OUTPUT
+          fi
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -78,12 +85,23 @@ jobs:
           MSG_ID: ${{ steps.notify_start.outputs.message_id }}
         run: |
           # update progress to 70%
+          payload=$(jq -n '{embeds:[{title:"Bot deployment", description:"Building and pushing image", fields:[{name:"Progress", value:"70%"}], color:16711680}], "tts": false }')
           if [ -z "$MSG_ID" ]; then
-            echo "No message id, skipping update"
-            exit 0
+            echo "No message id from start step — sending a new progress message"
+            res=$(curl -s -H "Content-Type: application/json" -d "$payload" "$WEBHOOK?wait=true")
+            echo "mid_response=$res"
+          else
+            # try PATCH first; if it fails, fallback to POST
+            res=$(curl -s -w "%{http_code}" -o /tmp/patch_res -X PATCH -H "Content-Type: application/json" -d "$payload" "$WEBHOOK/messages/$MSG_ID")
+            http_code=$res
+            if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+              echo "Patched existing message (id=$MSG_ID)"
+            else
+              echo "Patch failed (http_code=$http_code). Falling back to POST. Patch body:"; cat /tmp/patch_res
+              res=$(curl -s -H "Content-Type: application/json" -d "$payload" "$WEBHOOK?wait=true")
+              echo "mid_fallback_response=$res"
+            fi
           fi
-          payload=$(jq -n '{embeds:[{title:"Bot deployment", description:"Building and pushing image", fields:[{name:"Progress", value:"70%"}], color:16711680}]}')
-          curl -s -X PATCH -H "Content-Type: application/json" -d "$payload" "$WEBHOOK/messages/$MSG_ID"
 
       - name: Notify Discord (done)
         if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
@@ -91,9 +109,19 @@ jobs:
           WEBHOOK: ${{ env.DISCORD_WEBHOOK_URL }}
           MSG_ID: ${{ steps.notify_start.outputs.message_id }}
         run: |
+          payload=$(jq -n '{embeds:[{title:"Bot deployment", description:"Deployment finished", fields:[{name:"Progress", value:"100%"}], color:3066993}], "tts": false }')
           if [ -z "$MSG_ID" ]; then
-            echo "No message id, skipping final update"
-            exit 0
+            echo "No message id from start step — sending a final message"
+            res=$(curl -s -H "Content-Type: application/json" -d "$payload" "$WEBHOOK?wait=true")
+            echo "done_response=$res"
+          else
+            res=$(curl -s -w "%{http_code}" -o /tmp/patch_res -X PATCH -H "Content-Type: application/json" -d "$payload" "$WEBHOOK/messages/$MSG_ID")
+            http_code=$res
+            if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+              echo "Patched final message (id=$MSG_ID)"
+            else
+              echo "Patch failed (http_code=$http_code). Falling back to POST. Patch body:"; cat /tmp/patch_res
+              res=$(curl -s -H "Content-Type: application/json" -d "$payload" "$WEBHOOK?wait=true")
+              echo "done_fallback_response=$res"
+            fi
           fi
-          payload=$(jq -n '{embeds:[{title:"Bot deployment", description:"Deployment finished", fields:[{name:"Progress", value:"100%"}], color:3066993}]}')
-          curl -s -X PATCH -H "Content-Type: application/json" -d "$payload" "$WEBHOOK/messages/$MSG_ID"
