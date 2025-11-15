@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import fs from 'fs';
 import path from 'path';
 import * as config from './config.js';
+import prisma from './prismaClient.js';
 
 const TOKEN = config.DISCORD_TOKEN;
 const CLIENT_ID = config.CLIENT_ID;
@@ -120,6 +121,26 @@ async function main() {
 	client.once(Events.ClientReady, async () => {
 		// ready 이벤트 모듈에서도 로그를 남기지만, 등록은 여기서 보장
 		await registerCommands();
+				// start a background task to prune old member event logs (keep 7 days)
+				const pruneOldLogs = async () => {
+					try {
+						const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+						const resMember = await prisma.memberEventLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+						if (resMember && resMember.count) console.log(`Pruned ${resMember.count} memberEventLog entries older than 7 days`);
+						// Also prune application logs (AppLog)
+						try {
+							const resApp = await prisma.appLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+							if (resApp && resApp.count) console.log(`Pruned ${resApp.count} appLog entries older than 7 days`);
+						} catch (inner) {
+							console.error('Error pruning app logs:', inner);
+						}
+					} catch (e) {
+						console.error('Error pruning old logs:', e);
+					}
+				};
+				// run once at startup and then every 24 hours
+				await pruneOldLogs();
+				setInterval(pruneOldLogs, 24 * 60 * 60 * 1000);
 	});
 	await client.login(TOKEN);
 }

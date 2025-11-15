@@ -48,3 +48,14 @@ model MemberEventLog {
   meta      Json?
   createdAt DateTime @default(now())
 }
+
+// General application logs. Use `level` to distinguish severity (info/warn/error).
+model AppLog {
+  id        Int      @id @default(autoincrement())
+  guild     Guild?   @relation(fields: [guildId], references: [id])
+  guildId   Int?
+  level     String
+  message   String
+  meta      Json?
+  createdAt DateTime @default(now())
+}
