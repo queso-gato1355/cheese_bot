@@ -7,6 +7,7 @@ export const data = {
   name_localizations: { ko: '설정' },
   description: '봇 설정을 관리합니다.',
   description_localizations: { ko: '봇 설정을 관리합니다.' },
+  development: false, // <--- 이 플래그가 없으므로 전역(Production) 등록 대상입니다.
 };
 
 export async function execute(interaction) {

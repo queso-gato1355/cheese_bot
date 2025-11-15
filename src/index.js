@@ -76,33 +76,39 @@ async function registerCommands() {
 		return;
 	}
 
-	// DEPLOY_TARGET 환경변수로 배포 대상을 제어합니다. (development => DEV_GUILD_ID에 길드 전용 등록)
-	const DEPLOY_TARGET = process.env.DEPLOY_TARGET || process.env.NODE_ENV || 'production';
-
 	try {
 		const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-			// Build commandsData from loaded modules and deduplicate by name
-			const commandsData = Array.from(client.commands.values())
-				.map((m) => m.data)
-				.filter((v, i, a) => a.findIndex((x) => x.name === v.name) === i);
+    // Build commandsData from loaded modules and deduplicate by name
+    const commandsData = Array.from(client.commands.values())
+      .map((m) => m.data)
+      .filter((v, i, a) => a.findIndex((x) => x.name === v.name) === i);
 
-			if (DEPLOY_TARGET === 'development') {
-				// 개발 모드에서는 전역 명령 등록을 절대 수행하지 않습니다.
-				if (DEV_GUILD_ID) {
-					console.log(`개발용 길드 명령을 등록합니다 (guildId=${DEV_GUILD_ID})`);
-					await rest.put(Routes.applicationGuildCommands(CLIENT_ID, DEV_GUILD_ID), { body: commandsData });
-					console.log('개발용 길드 명령 등록 요청이 전송되었습니다.');
-				} else {
-					console.warn('DEPLOY_TARGET이 development로 설정되어 있으나 DEV_GUILD_ID가 설정되어 있지 않습니다. 개발 환경에서는 전역 명령 등록을 수행하지 않습니다. DEV_GUILD_ID를 설정하면 길드 전용 등록이 수행됩니다.');
-				}
-				return;
-			}
+    // Split commands by 'development' flag on the command data.
+    // If data.development === true => register only to DEV_GUILD_ID (guild-only).
+    // Otherwise register as global (production) command.
+    const devCommands = commandsData.filter((c) => c.development === true);
+    const prodCommands = commandsData.filter((c) => c.development !== true);
 
-			// 기본: 전역으로 등록 (PUT overwrites existing set)
-			console.log('전역 슬래시 명령을 등록합니다 (applicationCommands)... 이 작업은 전파되기까지 최대 1시간이 걸릴 수 있습니다.');
-			await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commandsData });
-			console.log('전역 슬래시 명령 등록 요청이 전송되었습니다. 전파 완료까지 시간이 걸릴 수 있습니다.');
+    // Register development (guild-only) commands to DEV_GUILD_ID if present
+    if (devCommands.length > 0) {
+      if (DEV_GUILD_ID) {
+        console.log(`개발용 길드 전용 명령들을 등록합니다 (guildId=${DEV_GUILD_ID})`, devCommands.map(d=>d.name));
+        await rest.put(Routes.applicationGuildCommands(CLIENT_ID, DEV_GUILD_ID), { body: devCommands });
+        console.log('개발용 길드 명령 등록 요청이 전송되었습니다.');
+      } else {
+        console.warn('개발용 명령들이 존재하지만 DEV_GUILD_ID가 설정되어 있지 않습니다. 개발용 명령 등록을 건너뜁니다.');
+      }
+    }
+
+    // Register production/global commands (can be empty)
+    if (prodCommands.length > 0) {
+      console.log('전역 슬래시 명령을 등록합니다 (applicationCommands)... 이 작업은 전파되기까지 최대 1시간이 걸릴 수 있습니다.');
+      await rest.put(Routes.applicationCommands(CLIENT_ID), { body: prodCommands });
+      console.log('전역 슬래시 명령 등록 요청이 전송되었습니다. 전파 완료까지 시간이 걸릴 수 있습니다.');
+    } else {
+      console.log('등록할 전역(Production) 명령이 없습니다.');
+    }
 	} catch (err) {
 		console.error('명령 등록 중 오류:', err);
 	}

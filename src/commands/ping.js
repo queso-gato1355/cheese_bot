@@ -4,6 +4,7 @@ export const data = {
   name_localizations: { ko: '핑' },
   description: '봇의 지연 시간을 확인합니다.',
   description_localizations: { ko: '봇의 지연 시간을 확인합니다.' },
+  development: false, // <--- 이 플래그가 없으므로 전역(Production) 등록 대상입니다.
 };
 
 export async function execute(interaction, client) {
