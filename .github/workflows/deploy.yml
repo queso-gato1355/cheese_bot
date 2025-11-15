@@ -56,8 +56,9 @@ jobs:
           payload=$(jq -n --arg branch "$BRANCH" '{embeds:[{title:"Bot deployment", description:("Branch: " + $branch), fields:[{name:"Progress", value:"0%"}], color:3447003}], "tts": false }')
           # Use ?wait=true to get the created message object (includes id). Some webhook endpoints return 204 without wait.
           res=$(curl -s -H "Content-Type: application/json" -d "$payload" "$WEBHOOK?wait=true")
-          msg_id=$(echo "$res" | jq -r .id // true)
-          if [ "$msg_id" = "true" ] || [ -z "$msg_id" ] || [ "$msg_id" = "null" ]; then
+          # Safely extract .id from the JSON response; default to empty when missing
+          msg_id=$(echo "$res" | jq -r '.id // empty')
+          if [ -z "$msg_id" ] || [ "$msg_id" = "null" ]; then
             echo "Warning: could not obtain message id from webhook response. Response: $res"
             echo "message_id=" >> $GITHUB_OUTPUT
           else
