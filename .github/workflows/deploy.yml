@@ -13,7 +13,7 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    secrets: 
+    env:
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     permissions:
       contents: read
@@ -35,11 +35,21 @@ jobs:
             echo "DEPLOY_TARGET=production" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check secrets presence
+        run: |
+          # Do NOT print secret values. Only print whether they exist.
+          if [ -n "${DISCORD_WEBHOOK_URL}" ]; then
+            echo "DISCORD_WEBHOOK_URL: present"
+          else
+            echo "DISCORD_WEBHOOK_URL: missing"
+          fi
+        shell: bash
+
       - name: Notify Discord (start)
         id: notify_start
-        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
+        if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
         env:
-          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          WEBHOOK: ${{ env.DISCORD_WEBHOOK_URL }}
           BRANCH: ${{ github.ref_name }}
         run: |
           echo 'Sending start message to Discord...'
@@ -62,9 +72,9 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.DEPLOY_TAG }}
 
       - name: Notify Discord (mid)
-        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
+        if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
         env:
-          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          WEBHOOK: ${{ env.DISCORD_WEBHOOK_URL }}
           MSG_ID: ${{ steps.notify_start.outputs.message_id }}
         run: |
           # update progress to 70%
@@ -76,9 +86,9 @@ jobs:
           curl -s -X PATCH -H "Content-Type: application/json" -d "$payload" "$WEBHOOK/messages/$MSG_ID"
 
       - name: Notify Discord (done)
-        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
+        if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
         env:
-          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          WEBHOOK: ${{ env.DISCORD_WEBHOOK_URL }}
           MSG_ID: ${{ steps.notify_start.outputs.message_id }}
         run: |
           if [ -z "$MSG_ID" ]; then
