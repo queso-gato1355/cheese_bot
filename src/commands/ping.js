@@ -6,7 +6,7 @@ export const data = {
   name_localizations: { ko: '핑' },
   description: '봇의 지연 시간을 확인합니다.',
   description_localizations: { ko: '봇의 지연 시간을 확인합니다.' },
-  development: false, // production 명령어
+  development: true, // production 명령어
 };
 
 export async function execute(interaction, client) {
