@@ -28,7 +28,8 @@ jobs:
         id: vars
         run: |
           if [ "${{ github.ref }}" = "refs/heads/development" ]; then
-            echo "DEPLOY_TAG=dev" >> $GITHUB_OUTPUT
+            # For development branch we still want to publish the image with the 'latest' tag
+            echo "DEPLOY_TAG=latest" >> $GITHUB_OUTPUT
             echo "DEPLOY_TARGET=development" >> $GITHUB_OUTPUT
           else
             echo "DEPLOY_TAG=latest" >> $GITHUB_OUTPUT
