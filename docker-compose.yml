@@ -23,10 +23,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    # Use --registry-auth so watchtower can pull private images from registries
-    # It relies on the host Docker daemon's credentials (what 'docker login' saved).
-    command: --cleanup --interval 300 --registry-auth
-
+    command: --cleanup --interval 300
   db:
     image: postgres:15-alpine
     container_name: cheese_bot_db
