@@ -25,6 +25,7 @@ model GuildSetting {
   guild            Guild    @relation(fields: [guildId], references: [id])
   guildId          Int      @unique
   welcomeChannelId String?
+  attendanceChannelId String?
   leaveChannelId   String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -78,4 +79,17 @@ model AppLog {
   message   String
   meta      Json?
   createdAt DateTime @default(now())
+}
+
+// Attendance records: store per-day attendance per user
+model Attendance {
+  id             Int      @id @default(autoincrement())
+  guild          Guild    @relation(fields: [guildId], references: [id])
+  guildId        Int
+  discordUserId  String
+  date           DateTime // normalized to UTC midnight
+  createdAt      DateTime @default(now())
+
+  @@unique([guildId, discordUserId, date])
+  @@index([guildId, date])
 }

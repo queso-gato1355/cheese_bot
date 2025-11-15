@@ -2,7 +2,7 @@
 // Migrate settings storage to Prisma (PostgreSQL). Uses the Guild and GuildSetting models.
 import prisma from '../prismaClient.js';
 
-const ALLOWED_KEYS = ['welcomeChannelId', 'leaveChannelId'];
+const ALLOWED_KEYS = ['welcomeChannelId', 'leaveChannelId', 'attendanceChannelId'];
 const ROLE_TYPES = ['OWNER', 'ADMIN', 'USER', 'MUTE'];
 
 async function findOrCreateGuild(guildIdString) {
@@ -23,6 +23,7 @@ export async function getGuildSettings(guildIdString) {
     return {
       welcomeChannelId: setting.welcomeChannelId || undefined,
       leaveChannelId: setting.leaveChannelId || undefined,
+      attendanceChannelId: setting.attendanceChannelId || undefined,
     };
   } catch (err) {
     console.error('settingsStore.getGuildSettings error:', err);

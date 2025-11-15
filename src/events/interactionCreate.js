@@ -4,6 +4,7 @@ export const once = false;
 
 import { EmbedBuilder, ActionRowBuilder, ChannelSelectMenuBuilder, PermissionsBitField, StringSelectMenuBuilder, RoleSelectMenuBuilder } from 'discord.js';
 import * as settingsStore from '../utils/settingsStore.js';
+import attendanceStore from '../utils/attendanceStore.js';
 import { ButtonStyle } from 'discord.js';
 
 export async function execute(interaction, client) {
@@ -26,7 +27,7 @@ export async function execute(interaction, client) {
       // settings 메뉴에서 '기본 설정' 선택
       if (customId === 'settings-menu') {
         const value = interaction.values && interaction.values[0];
-        if (value === 'basic') {
+  if (value === 'basic') {
           // fetch existing settings so we can show placeholders / current values
           const guildId = interaction.guildId;
           const guildSettings = guildId ? await settingsStore.getGuildSettings(guildId) : {};
@@ -50,6 +51,27 @@ export async function execute(interaction, client) {
           // Update original ephemeral message to show channel picker
           await interaction.update({ embeds: [embed], components: [row], content: null });
           return;
+        } else if (value === 'attendance') {
+          const guildId = interaction.guildId;
+          const guildSettings = guildId ? await settingsStore.getGuildSettings(guildId) : {};
+
+          const currentChannelId = guildSettings?.attendanceChannelId;
+          const currentChannelLabel = currentChannelId ? `<#${currentChannelId}>` : '미설정';
+
+          const embed = new EmbedBuilder()
+            .setTitle('출석 설정')
+            .setDescription('출석체크 메시지를 게시할 채널을 선택하세요.')
+            .addFields({ name: '현재 출석 채널', value: currentChannelLabel, inline: false })
+            .setColor(0x00AE86);
+
+          const channelSelect = new ChannelSelectMenuBuilder()
+            .setCustomId('settings-attendance-channel')
+            .setPlaceholder(currentChannelId ? `현재: ${currentChannelLabel}` : '채널을 선택하세요')
+            .setMaxValues(1);
+
+          const row = new ActionRowBuilder().addComponents(channelSelect);
+          await interaction.update({ embeds: [embed], components: [row], content: null });
+          return;
         }
       }
 
@@ -70,6 +92,22 @@ export async function execute(interaction, client) {
           .setDescription(`입장 메시지 채널이 <#${channelId}>(으)로 설정되었습니다.`)
           .setColor(0x57F287);
 
+        await interaction.update({ embeds: [embed], components: [], content: null });
+        return;
+      }
+
+      if (customId === 'settings-attendance-channel') {
+        const channelId = interaction.values && interaction.values[0];
+        const guildId = interaction.guildId;
+        if (!guildId) {
+          await interaction.update({ content: '길드 컨텍스트를 찾을 수 없어 설정할 수 없습니다.', embeds: [], components: [] });
+          return;
+        }
+        await settingsStore.setGuildSetting(guildId, 'attendanceChannelId', channelId);
+        const embed = new EmbedBuilder()
+          .setTitle('설정 저장됨')
+          .setDescription(`출석체크 채널이 <#${channelId}>(으)로 설정되었습니다.`)
+          .setColor(0x57F287);
         await interaction.update({ embeds: [embed], components: [], content: null });
         return;
       }
@@ -240,6 +278,87 @@ export async function execute(interaction, client) {
         } catch (err) {
           console.error('delete-roles error:', err);
           await interaction.update({ content: '역할 삭제 중 오류가 발생했습니다.', embeds: [], components: [] });
+        }
+        return;
+      }
+
+      // Attendance: show personal dashboard (ephemeral)
+      if (customId === 'attendance-my') {
+        const guildId = interaction.guildId;
+        const userId = interaction.user.id;
+        try {
+          // try to record attendance (idempotent)
+          await attendanceStore.recordAttendance(guildId, userId, new Date()).catch(() => null);
+          const stats = await attendanceStore.getUserStats(guildId, userId);
+          const dates = await attendanceStore.getUserAttendanceDates(guildId, userId, 3); // last 3 months
+
+          // build simple calendar for current month
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = now.getMonth();
+          const firstDay = new Date(Date.UTC(year, month, 1));
+          const lastDay = new Date(Date.UTC(year, month + 1, 0));
+          const today = new Date();
+          const attendedSet = new Set(dates.map(d => new Date(d).toISOString().slice(0,10)));
+
+          // calendar header
+          const monthName = firstDay.toLocaleString('ko-KR', { month: 'long', timeZone: 'UTC' });
+          let calendar = '일 월 화 수 목 금 토\n';
+          // pad first week
+          let week = '';
+          for (let i = 0; i < firstDay.getUTCDay(); i++) week += '   ';
+          for (let d = 1; d <= lastDay.getUTCDate(); d++) {
+            const dt = new Date(Date.UTC(year, month, d));
+            const key = dt.toISOString().slice(0,10);
+            let cell = (d < 10 ? ' ' + d : d.toString());
+            if (key === new Date().toISOString().slice(0,10)) {
+              // today highlight
+              cell = `**[${cell}]**`;
+            } else if (attendedSet.has(key)) {
+              cell = `__${cell}__`;
+            }
+            week += cell + ' ';
+            if (dt.getUTCDay() === 6 || d === lastDay.getUTCDate()) {
+              calendar += week.trim() + '\n';
+              week = '';
+            }
+          }
+
+          const user = interaction.user;
+          const embed = new EmbedBuilder()
+            .setTitle(`안녕하세요, ${user.username}!`)
+            .setThumbnail(user.displayAvatarURL({ forceStatic: false }))
+            .setDescription(`**${monthName} 출석 달력**\n\n${calendar}`)
+            .addFields({ name: '연속 출석', value: `${stats.streak} 일`, inline: true }, { name: '총 출석', value: `${stats.total} 회`, inline: true })
+            .setColor(0x6A5ACD);
+
+          await interaction.reply({ embeds: [embed], ephemeral: true });
+        } catch (e) {
+          console.error('attendance-my error:', e);
+          await interaction.reply({ content: '출석 대시보드를 불러오는 중 오류가 발생했습니다.', ephemeral: true });
+        }
+        return;
+      }
+
+      // Attendance: refresh leaderboard (edit message)
+      if (customId === 'attendance-refresh') {
+        try {
+          const guildId = interaction.guildId;
+          const leaderboard = await attendanceStore.getLeaderboard(guildId, 10);
+          const lbEmbed = new EmbedBuilder().setTitle('출석 랭킹 (Top 10)').setColor(0xFFD166);
+          if (leaderboard.length === 0) lbEmbed.setDescription('아직 출석 기록이 없습니다.');
+          else lbEmbed.setDescription(leaderboard.map((r, i) => `${i+1}. <@${r.discordUserId}> — ${r.count}회`).join('\n'));
+
+          // edit the original message
+          if (interaction.message) {
+            await interaction.message.edit({ embeds: [lbEmbed] });
+            await interaction.reply({ content: '랭킹을 새로고침했습니다.', ephemeral: true });
+          } else {
+            await interaction.reply({ content: '원본 메시지를 찾을 수 없어 새로고침할 수 없습니다.', ephemeral: true });
+          }
+        } catch (e) {
+          console.error('attendance-refresh error:', e);
+          await interaction.reply({ content: '랭킹 새로고침 중 오류가 발생했습니다.', ephemeral: true });
         }
         return;
       }

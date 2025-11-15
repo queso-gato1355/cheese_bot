@@ -34,6 +34,11 @@ export async function execute(interaction) {
         description: '서버의 기본 동작을 설정합니다 (예: 입장 메시지 채널)',
         value: 'basic',
       },
+      {
+        label: '출석 설정',
+        description: '출석체크 채널을 설정합니다',
+        value: 'attendance',
+      },
     ]);
 
   const row = new ActionRowBuilder().addComponents(menu);
