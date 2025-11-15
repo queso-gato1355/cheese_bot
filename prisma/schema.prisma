@@ -18,6 +18,7 @@ model Guild {
   logs      MemberEventLog[]
   appLogs   AppLog[]
   attendances Attendance[]
+  guildrole GuildRole[]
   createdAt DateTime        @default(now())
 }
 
