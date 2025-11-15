@@ -1,8 +1,7 @@
 version: '3.8'
 services:
   cheese_bot:
-    build: .
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-your-org}/cheese_bot:latest
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/cheese_bot:latest
     container_name: cheese_bot
     restart: unless-stopped
     environment:
@@ -11,8 +10,8 @@ services:
       - DEV_GUILD_ID=${DEV_GUILD_ID}
       - DEPLOY_TARGET=${DEPLOY_TARGET}
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-    volumes:
-      - ./data:/app/data
+    # No local data volume required - settings persisted in PostgreSQL via Prisma
+    # If you need to persist additional files, mount a host path here.
     depends_on:
       - db
 
