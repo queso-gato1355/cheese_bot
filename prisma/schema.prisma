@@ -50,6 +50,25 @@ model MemberEventLog {
   createdAt DateTime @default(now())
 }
 
+enum RoleType {
+  OWNER
+  ADMIN
+  USER
+  MUTE
+}
+
+// Per-guild role mappings for the application (e.g. which role is Admin/User/Mute)
+model GuildRole {
+  id        Int      @id @default(autoincrement())
+  guild     Guild    @relation(fields: [guildId], references: [id])
+  guildId   Int
+  type      RoleType
+  roleId    String
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, type])
+}
+
 // General application logs. Use `level` to distinguish severity (info/warn/error).
 model AppLog {
   id        Int      @id @default(autoincrement())
