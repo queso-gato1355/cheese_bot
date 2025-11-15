@@ -1,6 +1,10 @@
 name: Build and Deploy Docker Image
 
 on:
+  workflow_call:
+    secrets:
+      DISCORD_WEBHOOK_URL:
+        required: true
   push:
     branches:
       - main
@@ -9,6 +13,8 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    secrets: 
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     permissions:
       contents: read
       packages: write
@@ -31,7 +37,7 @@ jobs:
 
       - name: Notify Discord (start)
         id: notify_start
-        if: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           BRANCH: ${{ github.ref_name }}
@@ -56,7 +62,7 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.DEPLOY_TAG }}
 
       - name: Notify Discord (mid)
-        if: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           MSG_ID: ${{ steps.notify_start.outputs.message_id }}
@@ -70,7 +76,7 @@ jobs:
           curl -s -X PATCH -H "Content-Type: application/json" -d "$payload" "$WEBHOOK/messages/$MSG_ID"
 
       - name: Notify Discord (done)
-        if: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           MSG_ID: ${{ steps.notify_start.outputs.message_id }}
