@@ -17,6 +17,7 @@ model Guild {
   users     DiscordUser[]
   logs      MemberEventLog[]
   appLogs   AppLog[]
+  attendances Attendance[]
   createdAt DateTime        @default(now())
 }
 
