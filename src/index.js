@@ -87,10 +87,15 @@ async function registerCommands() {
 				.map((m) => m.data)
 				.filter((v, i, a) => a.findIndex((x) => x.name === v.name) === i);
 
-			if (DEPLOY_TARGET === 'development' && DEV_GUILD_ID) {
-				console.log(`개발용 길드 명령을 등록합니다 (guildId=${DEV_GUILD_ID})`);
-				await rest.put(Routes.applicationGuildCommands(CLIENT_ID, DEV_GUILD_ID), { body: commandsData });
-				console.log('개발용 길드 명령 등록 요청이 전송되었습니다.');
+			if (DEPLOY_TARGET === 'development') {
+				// 개발 모드에서는 전역 명령 등록을 절대 수행하지 않습니다.
+				if (DEV_GUILD_ID) {
+					console.log(`개발용 길드 명령을 등록합니다 (guildId=${DEV_GUILD_ID})`);
+					await rest.put(Routes.applicationGuildCommands(CLIENT_ID, DEV_GUILD_ID), { body: commandsData });
+					console.log('개발용 길드 명령 등록 요청이 전송되었습니다.');
+				} else {
+					console.warn('DEPLOY_TARGET이 development로 설정되어 있으나 DEV_GUILD_ID가 설정되어 있지 않습니다. 개발 환경에서는 전역 명령 등록을 수행하지 않습니다. DEV_GUILD_ID를 설정하면 길드 전용 등록이 수행됩니다.');
+				}
 				return;
 			}
 
