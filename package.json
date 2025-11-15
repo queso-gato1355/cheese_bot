@@ -1,0 +1,27 @@
+{
+  "name": "cheese_bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.24.2",
+    "dotenv": "^17.2.3",
+    "@discordjs/rest": "^1.2.0",
+    "discord-api-types": "^0.37.43",
+    "pg": "^8.16.3",
+    "@prisma/client": "^5.8.0",
+    "prisma": "^5.8.0"
+  },
+  "prisma": {
+    "schema": "./prisma/schema.prisma"
+  }
+}

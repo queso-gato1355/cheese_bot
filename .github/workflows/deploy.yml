@@ -1,0 +1,83 @@
+name: Build and Deploy Docker Image
+
+on:
+  push:
+    branches:
+      - main
+      - development
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set variables
+        id: vars
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/development" ]; then
+            echo "DEPLOY_TAG=dev" >> $GITHUB_OUTPUT
+            echo "DEPLOY_TARGET=development" >> $GITHUB_OUTPUT
+          else
+            echo "DEPLOY_TAG=latest" >> $GITHUB_OUTPUT
+            echo "DEPLOY_TARGET=production" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify Discord (start)
+        id: notify_start
+        if: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          echo 'Sending start message to Discord...'
+          payload=$(jq -n --arg branch "$BRANCH" '{embeds:[{title:"Bot deployment", description:("Branch: " + $branch), fields:[{name:"Progress", value:"0%"}], color:3447003}]}')
+          res=$(curl -s -H "Content-Type: application/json" -d "$payload" "$WEBHOOK")
+          echo "message_id=$(echo "$res" | jq -r .id)" >> $GITHUB_OUTPUT
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.DEPLOY_TAG }}
+
+      - name: Notify Discord (mid)
+        if: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          MSG_ID: ${{ steps.notify_start.outputs.message_id }}
+        run: |
+          # update progress to 70%
+          if [ -z "$MSG_ID" ]; then
+            echo "No message id, skipping update"
+            exit 0
+          fi
+          payload=$(jq -n '{embeds:[{title:"Bot deployment", description:"Building and pushing image", fields:[{name:"Progress", value:"70%"}], color:16711680}]}')
+          curl -s -X PATCH -H "Content-Type: application/json" -d "$payload" "$WEBHOOK/messages/$MSG_ID"
+
+      - name: Notify Discord (done)
+        if: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          MSG_ID: ${{ steps.notify_start.outputs.message_id }}
+        run: |
+          if [ -z "$MSG_ID" ]; then
+            echo "No message id, skipping final update"
+            exit 0
+          fi
+          payload=$(jq -n '{embeds:[{title:"Bot deployment", description:"Deployment finished", fields:[{name:"Progress", value:"100%"}], color:3066993}]}')
+          curl -s -X PATCH -H "Content-Type: application/json" -d "$payload" "$WEBHOOK/messages/$MSG_ID"

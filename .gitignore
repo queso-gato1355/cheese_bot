@@ -1,0 +1,44 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# dotenv files (keep example files)
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Runtime data
+/data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.sublime-*
+
+# Build
+dist/
+build/
+coverage/
+.cache/
+
+# Prisma
+# ignore local sqlite DB or other generated DB files (if any)
+dev.db
+
+# Docker overrides
+docker-compose.override.yml
+
+# Misc
+*.tgz
+.env.local
