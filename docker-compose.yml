@@ -1,6 +1,9 @@
 version: '3.8'
 services:
   cheese_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/cheese_bot:latest
     container_name: cheese_bot
     restart: unless-stopped

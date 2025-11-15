@@ -10,37 +10,37 @@ datasource db {
 }
 
 model Guild {
-  id        Int             @id @default(autoincrement())
-  guildId   String          @unique
-  name      String?
-  settings  GuildSetting?
-  users     DiscordUser[]
-  logs      MemberEventLog[]
-  appLogs   AppLog[]
+  id          Int              @id @default(autoincrement())
+  guildId     String           @unique
+  name        String?
+  settings    GuildSetting?
+  users       DiscordUser[]
+  logs        MemberEventLog[]
+  appLogs     AppLog[]
   attendances Attendance[]
-  guildroles GuildRole[]
-  createdAt DateTime        @default(now())
+  guildroles  GuildRole[]
+  createdAt   DateTime         @default(now())
 }
 
 model GuildSetting {
-  id               Int      @id @default(autoincrement())
-  guild            Guild    @relation(fields: [guildId], references: [id])
-  guildId          Int      @unique
-  welcomeChannelId String?
+  id                  Int      @id @default(autoincrement())
+  guild               Guild    @relation(fields: [guildId], references: [id])
+  guildId             Int      @unique
+  welcomeChannelId    String?
   attendanceChannelId String?
-  leaveChannelId   String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  leaveChannelId      String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model DiscordUser {
-  id           Int      @id @default(autoincrement())
-  discordId    String   @unique
-  username     String
+  id            Int       @id @default(autoincrement())
+  discordId     String    @unique
+  username      String
   discriminator String
-  joinedAt     DateTime?
-  guild        Guild?   @relation(fields: [guildId], references: [id])
-  guildId      Int?
+  joinedAt      DateTime?
+  guild         Guild?    @relation(fields: [guildId], references: [id])
+  guildId       Int?
 }
 
 model MemberEventLog {
@@ -85,12 +85,12 @@ model AppLog {
 
 // Attendance records: store per-day attendance per user
 model Attendance {
-  id             Int      @id @default(autoincrement())
-  guild          Guild    @relation(fields: [guildId], references: [id])
-  guildId        Int
-  discordUserId  String
-  date           DateTime // normalized to UTC midnight
-  createdAt      DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  guild         Guild    @relation(fields: [guildId], references: [id])
+  guildId       Int
+  discordUserId String
+  date          DateTime // normalized to UTC midnight
+  createdAt     DateTime @default(now())
 
   @@unique([guildId, discordUserId, date])
   @@index([guildId, date])
